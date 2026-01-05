@@ -16,6 +16,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# --- IFRAME ---
+st.markdown(
+    "<iframe src='https://flo.uri.sh/visualisation/27074206/embed' title='Interactive or visual content' class='flourish-embed-iframe' frameborder='0' scrolling='no' style='width:100%;height:600px;' sandbox='allow-same-origin allow-forms allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation'></iframe>",
+    unsafe_allow_html=True,
+)
+
 # --- CUSTOM CSS FOR BETTER STYLING ---
 st.markdown(
     """
