@@ -1,26 +1,22 @@
-# 🏛️ Stortinget Intelligence Dashboard - Enhanced Version
+# 🏛️ Stortinget Intelligence Dashboard
 
 An advanced analytics platform for exploring voting patterns, party alliances, and political dynamics in the Norwegian Parliament.
 
-## 🎯 What's New in This Version
-
-### Major Improvements
-
-#### 1. **Better Data Presentation**
+#### 1. **Data Presentation**
 
 - **Tabbed Navigation**: Organized content into 5 focused tabs instead of a single scrolling page
 - **Interactive Filters**: Multi-select filters for parties and topics in the Rebels section
 - **Comparative Visualizations**: Side-by-side charts for better pattern recognition
 - **Progressive Disclosure**: Key metrics upfront, details available on-demand
 
-#### 2. **Enhanced Visualizations**
+#### 2. **Visualizations**
 
 - **Scatter Plots**: Show vote distribution (For vs Against) with 50/50 reference line
 - **Pie Charts**: Visual breakdown of controversial votes and relationship distributions
 - **Distribution Histograms**: Show patterns in alliance agreements and controversy scores
 - **Network-Style Views**: Party relationships categorized by strength (Allies/Neutral/Adversaries)
 
-#### 3. **New Insights & Analytics**
+#### 3. **Insights & Analytics**
 
 **Tab 1: Alliance Network**
 
@@ -124,8 +120,8 @@ pip install streamlit pandas plotly requests
 
 ```
 project/
-├── storting_processor_enhanced.py  # Backend data processor
-├── streamlit_app_enhanced.py       # Frontend dashboard
+├── storting_processor.py  # Backend data processor
+├── streamlit_app.py       # Frontend dashboard
 └── README.md                        # This file
 ```
 
@@ -134,7 +130,7 @@ project/
 1. **First Time Setup**
 
    ```bash
-   streamlit run streamlit_app_enhanced.py
+   streamlit run streamlit_app.py
    ```
 
 2. **In the Dashboard**
@@ -157,13 +153,13 @@ The processor creates 6 CSV files:
 1. **processed_rebels.csv** - Individual rebel votes
 2. **processed_controversy.csv** - Vote controversy scores
 3. **processed_alliances.csv** - Party-to-party agreement rates
-4. **processed_representative_activity.csv** ⭐ NEW - Per-representative statistics
-5. **processed_topic_stats.csv** ⭐ NEW - Per-topic aggregates
-6. **processed_party_patterns.csv** ⭐ NEW - Party voting tendencies
+4. **processed_representative_activity.csv**  Per-representative statistics
+5. **processed_topic_stats.csv** Per-topic aggregates
+6. **processed_party_patterns.csv** Party voting tendencies
 
 ## 🎨 Design Philosophy
 
-This enhanced version follows these principles:
+This version follows these principles:
 
 1. **Progressive Disclosure**: Show high-level insights first, details on demand
 2. **Visual Hierarchy**: Use color, size, and layout to guide attention
