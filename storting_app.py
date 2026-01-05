@@ -272,8 +272,9 @@ with col4:
 st.markdown("---")
 
 # --- TABS FOR BETTER ORGANIZATION ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
+tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
+        "📈 Overview",
         "🤝 Alliance Network",
         "🔥 Controversy Analysis",
         "🎯 The Rebels",
@@ -281,6 +282,14 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
         "🔍 Topic Explorer",
     ]
 )
+
+
+with tab0:
+    st.text(
+        "This image shows the percentage of alignment and agreement in voting for cases among parties"
+    )
+    st.image("parties.png")
+
 
 # ============================================================================
 # TAB 1: ALLIANCE NETWORK
