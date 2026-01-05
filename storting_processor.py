@@ -91,7 +91,7 @@ class StortingDataProcessor:
 
         return party_lines, found_rebels
 
-    def run_analysis(self, limit=50):
+    def run_analysis(self, limit=500):
         """Main loop to fetch cases and process them."""
         saker_xml = self._get_xml("saker", {"sesjonid": self.session_id})
         if saker_xml is None:
@@ -245,5 +245,5 @@ class StortingDataProcessor:
 
 if __name__ == "__main__":
     processor = StortingDataProcessor()
-    processor.run_analysis(limit=50)
+    processor.run_analysis(limit=500)
     processor.export_to_csv()

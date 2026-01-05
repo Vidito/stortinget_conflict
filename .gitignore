@@ -107,11 +107,6 @@ Thumbs.db
 desktop.ini
 
 # Data files
-*.csv
 *.json
 *.log
 
-# Processed data files (from your project)
-processed_alliances.csv
-processed_controversy.csv
-processed_rebels.csv

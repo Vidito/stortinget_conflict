@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
-from storting_processor import StortingDataProcessor
 import numpy as np
 from datetime import datetime
 
@@ -14,12 +13,6 @@ st.set_page_config(
     layout="wide",
     page_icon="⚖️",
     initial_sidebar_state="expanded",
-)
-
-# --- IFRAME ---
-st.markdown(
-    "<iframe src='https://flo.uri.sh/visualisation/27074206/embed' title='Interactive or visual content' class='flourish-embed-iframe' frameborder='0' scrolling='no' style='width:100%;height:600px;' sandbox='allow-same-origin allow-forms allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation'></iframe>",
-    unsafe_allow_html=True,
 )
 
 # --- CUSTOM CSS FOR BETTER STYLING ---
@@ -65,6 +58,9 @@ def load_data():
         "rebels": "processed_rebels.csv",
         "controversy": "processed_controversy.csv",
         "alliances": "processed_alliances.csv",
+        "rep_activity": "processed_representative_activity.csv",
+        "topic_stats": "processed_topic_stats.csv",
+        "party_patterns": "processed_party_patterns.csv",
     }
 
     if all(os.path.exists(f) for f in files.values()):
@@ -72,11 +68,21 @@ def load_data():
             pd.read_csv(files["rebels"]),
             pd.read_csv(files["controversy"]),
             pd.read_csv(files["alliances"]),
+            pd.read_csv(files["rep_activity"]),
+            pd.read_csv(files["topic_stats"]),
+            pd.read_csv(files["party_patterns"]),
         )
-    return None, None, None
+    return None, None, None, None, None, None
 
 
-def calculate_insights(df_rebels, df_controversy, df_alliances):
+def calculate_insights(
+    df_rebels,
+    df_controversy,
+    df_alliances,
+    df_rep_activity,
+    df_topic_stats,
+    df_party_patterns,
+):
     """Calculate additional insights from the data."""
     insights = {}
 
@@ -90,7 +96,16 @@ def calculate_insights(df_rebels, df_controversy, df_alliances):
             party_rebels.iloc[0] if len(party_rebels) > 0 else 0
         )
 
-        # Most rebellious individual
+    # Most rebellious individual - now from rep_activity which has accurate totals
+    if df_rep_activity is not None and len(df_rep_activity) > 0:
+        # Sort by rebel count
+        top_rebel = df_rep_activity.nlargest(1, "Rebel_Votes")
+        if len(top_rebel) > 0:
+            insights["most_rebel_person"] = top_rebel.iloc[0]["Name"]
+            insights["most_rebel_person_count"] = top_rebel.iloc[0]["Rebel_Votes"]
+            insights["most_rebel_person_rate"] = top_rebel.iloc[0]["Rebel_Rate"]
+    else:
+        # Fallback to counting from rebels df
         individual_rebels = df_rebels["Name"].value_counts()
         insights["most_rebel_person"] = (
             individual_rebels.index[0] if len(individual_rebels) > 0 else "N/A"
@@ -98,6 +113,7 @@ def calculate_insights(df_rebels, df_controversy, df_alliances):
         insights["most_rebel_person_count"] = (
             individual_rebels.iloc[0] if len(individual_rebels) > 0 else 0
         )
+        insights["most_rebel_person_rate"] = 0
 
     # Strongest and weakest alliances
     if len(df_alliances) > 0:
@@ -116,8 +132,14 @@ def calculate_insights(df_rebels, df_controversy, df_alliances):
         df_controversy["Score"].mean() if len(df_controversy) > 0 else 0
     )
 
-    # Most controversial topic
-    if len(df_controversy) > 0:
+    # Most controversial topic - now from topic_stats
+    if df_topic_stats is not None and len(df_topic_stats) > 0:
+        top_topic = df_topic_stats.nlargest(1, "Avg_Controversy")
+        if len(top_topic) > 0:
+            insights["most_controversial_topic"] = top_topic.iloc[0]["Topic"]
+            insights["topic_avg_score"] = top_topic.iloc[0]["Avg_Controversy"]
+    else:
+        # Fallback to calculating from controversy df
         topic_controversy = (
             df_controversy.groupby("Topic")["Score"].mean().sort_values(ascending=False)
         )
@@ -128,49 +150,71 @@ def calculate_insights(df_rebels, df_controversy, df_alliances):
             topic_controversy.iloc[0] if len(topic_controversy) > 0 else 0
         )
 
+    # Party voting tendency - from party_patterns
+    if df_party_patterns is not None and len(df_party_patterns) > 0:
+        most_positive = df_party_patterns.nlargest(1, "For_Rate")
+        most_negative = df_party_patterns.nsmallest(1, "For_Rate")
+        if len(most_positive) > 0:
+            insights["most_positive_party"] = most_positive.iloc[0]["Party"]
+            insights["most_positive_rate"] = most_positive.iloc[0]["For_Rate"]
+        if len(most_negative) > 0:
+            insights["most_negative_party"] = most_negative.iloc[0]["Party"]
+            insights["most_negative_rate"] = most_negative.iloc[0]["For_Rate"]
+
     return insights
 
 
 # --- SIDEBAR & REFRESH LOGIC ---
 with st.sidebar:
-    st.title("⚙️ Control Panel")
+    st.title("📊 About")
 
-    st.markdown("### Data Configuration")
-    session = st.selectbox("Parliamentary Session", ["2024-2025", "2025-2026"])
-    case_limit = st.slider("Cases to Analyze", 10, 100, 50, step=10)
-
-    st.markdown("---")
-
-    if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
-        with st.status("Fetching from Stortinget API...", expanded=True) as status:
-            st.write("🔌 Connecting to API...")
-            processor = StortingDataProcessor(session_id=session)
-
-            st.write(f"📊 Analyzing {case_limit} cases...")
-            processor.run_analysis(limit=case_limit)
-
-            st.write("💾 Generating datasets...")
-            processor.export_to_csv()
-
-            status.update(label="✅ Data Updated!", state="complete", expanded=False)
-        st.cache_data.clear()
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown("### About")
-    st.info(
-        "This dashboard analyzes voting patterns, party alliances, and individual dissent in the Norwegian Parliament."
+    st.markdown(
+        """
+    ### Stortinget Intelligence Dashboard
+    
+    This dashboard analyzes voting patterns, party alliances, and individual dissent in the Norwegian Parliament.
+    
+    **Data Source:**  
+    [data.stortinget.no](https://data.stortinget.no)
+    
+    **What You Can Explore:**
+    - 🤝 Party alliance networks
+    - 🔥 Controversial votes
+    - 🎯 Representatives who break ranks
+    - 📈 Deep political insights
+    - 🔍 Topic-specific analysis
+    
+    **Metrics Explained:**
+    - **Controversy Score:** Measures how divided a vote was (0=unanimous, 1=perfect 50/50 split)
+    - **Rebel Rate:** Percentage of times a representative voted against their party majority
+    - **Agreement Rate:** How often two parties vote the same way
+    """
     )
+
+    st.markdown("---")
 
     # Check when data was last updated
     if os.path.exists("processed_alliances.csv"):
         mod_time = os.path.getmtime("processed_alliances.csv")
         last_update = datetime.fromtimestamp(mod_time).strftime("%Y-%m-%d %H:%M")
-        st.caption(f"Last updated: {last_update}")
+        st.caption(f"📅 Data last updated: {last_update}")
+    else:
+        st.warning("⚠️ No data files found. Please run the processor first.")
+
+    st.markdown("---")
+    st.caption("Built with Streamlit & Plotly")
+    st.caption("© 2026")
 
 
 # --- LOAD DATA ---
-df_rebels, df_controversy, df_alliances = load_data()
+(
+    df_rebels,
+    df_controversy,
+    df_alliances,
+    df_rep_activity,
+    df_topic_stats,
+    df_party_patterns,
+) = load_data()
 
 # --- MAIN APP HEADER ---
 st.markdown(
@@ -181,12 +225,20 @@ st.markdown("**Exploring Political Dynamics in the Norwegian Parliament**")
 
 if df_rebels is None:
     st.warning(
-        "⚠️ **No data available.** Click 'Refresh Data' in the sidebar to begin analysis."
+        "⚠️ **No data available.** Please run the data processor (`storting_processor_enhanced.py`) to generate the required CSV files, then refresh this page."
     )
+    st.code("python storting_processor_enhanced.py", language="bash")
     st.stop()
 
 # Calculate insights
-insights = calculate_insights(df_rebels, df_controversy, df_alliances)
+insights = calculate_insights(
+    df_rebels,
+    df_controversy,
+    df_alliances,
+    df_rep_activity,
+    df_topic_stats,
+    df_party_patterns,
+)
 
 # --- KEY METRICS OVERVIEW ---
 st.markdown("## 📊 Session Overview")
@@ -421,6 +473,11 @@ with tab3:
         st.markdown('<div class="insight-box">', unsafe_allow_html=True)
         st.markdown(f"**{insights['most_rebel_person']}**")
         st.metric("Rebel Votes", insights["most_rebel_person_count"])
+        if (
+            "most_rebel_person_rate" in insights
+            and insights["most_rebel_person_rate"] > 0
+        ):
+            st.metric("Rebel Rate", f"{insights['most_rebel_person_rate']:.1f}%")
         st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("#### 🏴 Most Rebellious Party")
@@ -517,25 +574,57 @@ with tab4:
         )
 
     with col_disc2:
-        # Most independent representatives
+        # Most independent representatives - using rep_activity data
         st.markdown("##### Top 10 Most Independent Representatives")
-        individual_stats = (
-            df_rebels.groupby("Name")
-            .agg({"Party": "first", "Case_ID": "count"})
-            .reset_index()
-        )
-        individual_stats.columns = ["Name", "Party", "Rebel_Votes"]
-        individual_stats = individual_stats.sort_values(
-            "Rebel_Votes", ascending=False
-        ).head(10)
 
-        fig_independents = px.bar(
-            individual_stats, y="Name", x="Rebel_Votes", color="Party", orientation="h"
-        )
-        fig_independents.update_layout(
-            height=350, yaxis={"categoryorder": "total ascending"}
-        )
-        st.plotly_chart(fig_independents, use_container_width=True)
+        if df_rep_activity is not None and len(df_rep_activity) > 0:
+            # Use the accurate rep_activity data
+            top_independents = df_rep_activity.nlargest(10, "Rebel_Rate").copy()
+
+            # Need to get party info from rebels df
+            rep_parties = df_rebels.groupby("Name")["Party"].first().reset_index()
+            top_independents = top_independents.merge(
+                rep_parties, on="Name", how="left"
+            )
+
+            fig_independents = px.bar(
+                top_independents,
+                y="Name",
+                x="Rebel_Rate",
+                color="Party",
+                orientation="h",
+                hover_data=["Rebel_Votes", "Total_Votes"],
+                labels={"Rebel_Rate": "Rebel Rate (%)"},
+            )
+            fig_independents.update_layout(
+                height=350, yaxis={"categoryorder": "total ascending"}
+            )
+            st.plotly_chart(fig_independents, use_container_width=True)
+
+            st.caption("💡 **Rebel Rate** = (Rebel Votes / Total Votes) × 100")
+        else:
+            # Fallback to old method if rep_activity not available
+            individual_stats = (
+                df_rebels.groupby("Name")
+                .agg({"Party": "first", "Case_ID": "count"})
+                .reset_index()
+            )
+            individual_stats.columns = ["Name", "Party", "Rebel_Votes"]
+            individual_stats = individual_stats.sort_values(
+                "Rebel_Votes", ascending=False
+            ).head(10)
+
+            fig_independents = px.bar(
+                individual_stats,
+                y="Name",
+                x="Rebel_Votes",
+                color="Party",
+                orientation="h",
+            )
+            fig_independents.update_layout(
+                height=350, yaxis={"categoryorder": "total ascending"}
+            )
+            st.plotly_chart(fig_independents, use_container_width=True)
 
     st.markdown("---")
 
@@ -591,27 +680,183 @@ with tab4:
             "💡 **Insight:** Party relationships form distinct clusters, revealing political blocs and opposition dynamics."
         )
 
+    # Add new section for party voting patterns
+    if df_party_patterns is not None and len(df_party_patterns) > 0:
+        st.markdown("---")
+        st.markdown("#### 🗳️ Party Voting Tendencies")
+
+        col_pat1, col_pat2 = st.columns(2)
+
+        with col_pat1:
+            st.markdown("##### Voting Direction by Party")
+            # Sort by For_Rate
+            df_party_sorted = df_party_patterns.sort_values("For_Rate", ascending=False)
+
+            fig_patterns = px.bar(
+                df_party_sorted,
+                x="Party",
+                y="For_Rate",
+                color="For_Rate",
+                color_continuous_scale="RdYlGn",
+                labels={"For_Rate": 'Percentage Voting "For" (%)'},
+            )
+            fig_patterns.update_layout(height=300, showlegend=False)
+            st.plotly_chart(fig_patterns, use_container_width=True)
+
+            if "most_positive_party" in insights:
+                st.info(
+                    f"💡 **Most Positive:** {insights['most_positive_party']} ({insights['most_positive_rate']:.1f}% vote 'For')"
+                )
+
+        with col_pat2:
+            st.markdown("##### For vs Against Distribution")
+            # Create stacked bar chart
+            fig_stack = go.Figure(
+                data=[
+                    go.Bar(
+                        name="For",
+                        x=df_party_sorted["Party"],
+                        y=df_party_sorted["For_Count"],
+                        marker_color="#10b981",
+                    ),
+                    go.Bar(
+                        name="Against",
+                        x=df_party_sorted["Party"],
+                        y=df_party_sorted["Against_Count"],
+                        marker_color="#ef4444",
+                    ),
+                ]
+            )
+            fig_stack.update_layout(
+                barmode="stack",
+                height=300,
+                yaxis_title="Total Votes",
+                xaxis_title="Party",
+            )
+            st.plotly_chart(fig_stack, use_container_width=True)
+
+            if "most_negative_party" in insights:
+                st.info(
+                    f"💡 **Most Negative:** {insights['most_negative_party']} ({insights['most_negative_rate']:.1f}% vote 'For')"
+                )
+
+    # Add representative activity analysis if available
+    if df_rep_activity is not None and len(df_rep_activity) > 0:
+        st.markdown("---")
+        st.markdown("#### 👥 Representative Activity Overview")
+
+        col_act1, col_act2, col_act3 = st.columns(3)
+
+        with col_act1:
+            st.metric("Total Representatives", len(df_rep_activity))
+            avg_votes = df_rep_activity["Total_Votes"].mean()
+            st.metric("Avg Votes per Rep", f"{avg_votes:.0f}")
+
+        with col_act2:
+            rebels_count = len(df_rep_activity[df_rep_activity["Rebel_Votes"] > 0])
+            st.metric("Reps with Rebel Votes", rebels_count)
+            avg_rebel_rate = df_rep_activity["Rebel_Rate"].mean()
+            st.metric("Avg Rebel Rate", f"{avg_rebel_rate:.1f}%")
+
+        with col_act3:
+            most_active = df_rep_activity.nlargest(1, "Total_Votes").iloc[0]
+            st.metric("Most Active Rep", most_active["Name"][:20])
+            st.metric("Their Vote Count", int(most_active["Total_Votes"]))
+
+        # Distribution of rebel rates
+        st.markdown("##### Distribution of Rebel Rates")
+        fig_rebel_dist = px.histogram(
+            df_rep_activity,
+            x="Rebel_Rate",
+            nbins=20,
+            color_discrete_sequence=["#8b5cf6"],
+            labels={
+                "Rebel_Rate": "Rebel Rate (%)",
+                "count": "Number of Representatives",
+            },
+        )
+        fig_rebel_dist.update_layout(height=250, showlegend=False)
+        st.plotly_chart(fig_rebel_dist, use_container_width=True)
+
 # ============================================================================
 # TAB 5: TOPIC EXPLORER
 # ============================================================================
 with tab5:
     st.markdown("### Explore by Topic")
 
-    # Topic statistics
-    topic_stats = (
-        df_controversy.groupby("Topic")
-        .agg({"Score": ["mean", "count", "max"], "For": "sum", "Against": "sum"})
-        .reset_index()
-    )
-    topic_stats.columns = [
-        "Topic",
-        "Avg_Controversy",
-        "Vote_Count",
-        "Max_Controversy",
-        "Total_For",
-        "Total_Against",
-    ]
-    topic_stats = topic_stats.sort_values("Avg_Controversy", ascending=False)
+    # Topic statistics - use df_topic_stats if available, otherwise calculate
+    if df_topic_stats is not None and len(df_topic_stats) > 0:
+        topic_stats = df_topic_stats.copy()
+        topic_stats = topic_stats.sort_values("Avg_Controversy", ascending=False)
+        topic_stats.columns = [
+            "Topic",
+            "Vote_Count",
+            "Total_For",
+            "Total_Against",
+            "Avg_Controversy",
+        ]
+    else:
+        # Fallback: calculate from df_controversy
+        topic_stats = (
+            df_controversy.groupby("Topic")
+            .agg({"Score": ["mean", "count", "max"], "For": "sum", "Against": "sum"})
+            .reset_index()
+        )
+        topic_stats.columns = [
+            "Topic",
+            "Avg_Controversy",
+            "Vote_Count",
+            "Max_Controversy",
+            "Total_For",
+            "Total_Against",
+        ]
+        topic_stats = topic_stats.sort_values("Avg_Controversy", ascending=False)
+
+    # Show overview of all topics
+    if df_topic_stats is not None and len(df_topic_stats) > 0:
+        st.markdown("#### 📊 Topic Statistics Overview")
+
+        col_overview1, col_overview2 = st.columns(2)
+
+        with col_overview1:
+            st.markdown("##### Most Controversial Topics")
+            top_controversial = df_topic_stats.nlargest(10, "Avg_Controversy")[
+                ["Topic", "Avg_Controversy", "Total_Votes"]
+            ]
+            fig_topic_overview = px.bar(
+                top_controversial,
+                x="Avg_Controversy",
+                y="Topic",
+                orientation="h",
+                color="Avg_Controversy",
+                color_continuous_scale="Reds",
+                hover_data=["Total_Votes"],
+            )
+            fig_topic_overview.update_layout(
+                height=350, yaxis={"categoryorder": "total ascending"}, showlegend=False
+            )
+            st.plotly_chart(fig_topic_overview, use_container_width=True)
+
+        with col_overview2:
+            st.markdown("##### Most Voted Topics")
+            top_voted = df_topic_stats.nlargest(10, "Total_Votes")[
+                ["Topic", "Total_Votes", "Avg_Controversy"]
+            ]
+            fig_voted = px.bar(
+                top_voted,
+                x="Total_Votes",
+                y="Topic",
+                orientation="h",
+                color="Avg_Controversy",
+                color_continuous_scale="Purples",
+                hover_data=["Avg_Controversy"],
+            )
+            fig_voted.update_layout(
+                height=350, yaxis={"categoryorder": "total ascending"}, showlegend=False
+            )
+            st.plotly_chart(fig_voted, use_container_width=True)
+
+        st.markdown("---")
 
     # Select a topic
     selected_topic = st.selectbox(
@@ -704,10 +949,8 @@ st.markdown(
     """
 <div style='text-align: center; color: #666; padding: 2rem;'>
     <p><strong>Stortinget Intelligence Dashboard</strong> | Data from data.stortinget.no</p>
-    <p>Session: {session} | Analyzing parliamentary voting patterns and political dynamics</p>
+    <p>Analyzing parliamentary voting patterns and political dynamics</p>
 </div>
-""".format(
-        session=session
-    ),
+""",
     unsafe_allow_html=True,
 )
