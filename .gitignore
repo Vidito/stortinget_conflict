@@ -109,7 +109,6 @@ desktop.ini
 # Data files
 *.csv
 *.json
-*.txt
 *.log
 
 # Processed data files (from your project)
